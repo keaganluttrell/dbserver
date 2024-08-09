@@ -1,0 +1,4 @@
+Rick,100 main,85
+Joe,101 main,90
+Jim,200 main,70
+Steve,211 main,0
