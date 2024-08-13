@@ -1,37 +1,36 @@
-TARGET = bin/dbview
-SRC = $(wildcard src/*.c)
-OBJ = $(patsubst src/%.c, obj/%.o, $(SRC))
+TARGET_SRV = bin/dbserver
+TARGET_CLI = bin/dbcli
 
-run: setup clean default
-	./$(TARGET) -f ./mynewdb.db -n
+SRC_SRV = $(wildcard src/srv/*.c)
+OBJ_SRV = $(SRC_SRV:src/srv/%.c=obj/srv/%.o)
 
-default: $(TARGET)
+SRC_CLI = $(wildcard src/cli/*.c)
+OBJ_CLI = $(SRC_CLI:src/cli/%.c=obj/cli/%.o)
 
-setup:
-	mkdir -p obj bin
+DIRS = bin obj obj/srv obj/cli
 
-test: clean default
-	#### Create DB-------------------------
-	./$(TARGET) -f ./mynewdb.db -n
-	#### Add employee ---------------------
-	./$(TARGET) -f ./mynewdb.db -a 'joe,10 addr ln,85'
-	#### List employees -------------------
-	./$(TARGET) -f ./mynewdb.db -l
-	#### Update employee hours
-	./$(TARGET) -f ./mynewdb.db -u 'joe,100' -l 
-	#### Remove employee ------------------
-	./$(TARGET) -f ./mynewdb.db -r 'joe' -l
-	#### Add Employees with a file --------
-	./$(TARGET) -f ./mynewdb.db -A manifest.txt -l
-
+run: clean default
+	./$(TARGET_SRV) -f ./mynewdb.db -n -p 8080 #&
+	# ./$(TARGET_CLI) -h 127.0.0.1 -p 8080
+	
+default: dirs $(TARGET_SRV) $(TARGET_CLI)
 
 clean:
-	rm -f obj/*.o
-	rm -f bin/*
-	rm -f *.db
+	rm -rf obj/srv/*.o
+	rm -rf bin/*
+	rm -rf *.db
 
-$(TARGET): $(OBJ)
-	gcc -o $@ $?
+dirs:
+	mkdir -p $(DIRS)
 
-obj/%.o : src/%.c
-	gcc -c $< -o $@ -Iinclude -g
+$(TARGET_SRV): $(OBJ_SRV)
+	gcc -g -o $@ $?
+
+$(OBJ_SRV): obj/srv/%.o: src/srv/%.c
+	gcc -g -c $< -o $@ -Iinclude
+
+$(TARGET_CLI): $(OBJ_CLI)
+	gcc -g -o $@ $?
+
+$(OBJ_CLI): obj/cli/%.o: src/cli/%.c
+	gcc -g -c $< -o $@ -Iinclude

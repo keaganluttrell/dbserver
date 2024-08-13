@@ -1,0 +1,6 @@
+
+Kill the server if its locking th port
+kill $(pgrep dbserver)
+
+remove highlighting after a search
+:noh

@@ -1,0 +1,21 @@
+  {
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "name": "C Server",
+          "type": "codelldb",
+          "request": "launch",
+          "program": "${workspaceFolder}/bin/dbserver",
+          "args": ["-n", "-f", "debug.db", "-p", "8080", "-A", "manifest.txt"],
+          "cwd": "${workspaceFolder}"
+        },
+        {
+          "name": "C Client",
+          "type": "codelldb",
+          "request": "launch",
+          "program": "${workspaceFolder}/bin/dbcli",
+          "args": ["-h", "127.0.0.1", "-p", "8080"],
+          "cwd": "${workspaceFolder}"
+        }
+    ]
+}
