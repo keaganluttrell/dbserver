@@ -6,7 +6,6 @@ This implements a few basic protocols that build on the [basic-file-db](https://
 
 ```bash
 make -s
-
 ```
 
 ### Start the server
@@ -28,6 +27,6 @@ While server is running make requests from client in another terminal
 ./bin/dbcli -h 127.0.0.1 -p 8080 -r "tim"
 
 ./bin/dbcli -h 127.0.0.1 -p 8080 -l
-```
 
+```
 
