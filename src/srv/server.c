@@ -39,15 +39,13 @@ int find_slot_by_fd(client_state_t *states, int fd) {
     return -1;
 }
 
-void fsm_reply_hello_err(client_state_t *c, dbproto_hdr_t *hdr) {
+void fsm_reply_err(client_state_t *c, dbproto_hdr_t *hdr) {
 
     hdr->type = htonl(MSG_ERROR);
     hdr->len = htons(0);
 
     write(c->fd, hdr, sizeof(dbproto_hdr_t));
 }
-
-void fsm_reply_add_err(client_state_t *c, dbproto_hdr_t *hdr) { return; }
 
 void fsm_reply_add(client_state_t *c, dbproto_hdr_t *hdr) {
     hdr->type = htonl(MSG_EMPLOYEE_ADD_RES);
@@ -109,15 +107,15 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
     if (c->state == STATE_HELLO) {
         if (hdr->type != MSG_HELLO_REQ || hdr->len != 1) {
             printf("Didn't get MSG_HELLO in HELLO state\n");
-            fsm_reply_hello_err(c, hdr);
+            fsm_reply_err(c, hdr);
             return STATUS_ERROR;
         }
 
         dbproto_hello_req *hello = (dbproto_hello_req *)&hdr[1];
         hello->proto = ntohs(hello->proto);
         if (hello->proto != PROTO_VER) {
-            printf("Proto version mismatch");
-            fsm_reply_hello_err(c, hdr);
+            printf("Proto version mismatch\n");
+            fsm_reply_err(c, hdr);
             return STATUS_ERROR;
         }
         fsm_reply_hello(c, hdr);
@@ -134,7 +132,7 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
 
             if (add_employee(dbhdr, employees, (char *)employee->data) !=
                 STATUS_SUCCESS) {
-                fsm_reply_add_err(c, hdr);
+                fsm_reply_err(c, hdr);
                 return STATUS_ERROR;
             } else {
                 fsm_reply_add(c, hdr);
@@ -155,7 +153,8 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
             if (remove_employee_by_name(dbhdr, *employees,
                                         (char *)employee->name) !=
                 STATUS_SUCCESS) {
-                perror("remove_employee_by_name");
+                printf("unable to remove employee: %s", employee->name);
+                fsm_reply_err(c, hdr);
             } else {
                 fsm_del_reply(c, hdr);
                 output_file(dbfd, dbhdr, *employees);
