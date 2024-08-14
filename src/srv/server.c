@@ -8,7 +8,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-// #include "common.h"
 #include "common.h"
 #include "parse.h"
 #include "server.h"
@@ -68,14 +67,37 @@ void fsm_reply_hello(client_state_t *c, dbproto_hdr_t *hdr) {
     write(c->fd, hdr, sizeof(dbproto_hdr_t) + sizeof(dbproto_hello_resp));
 }
 
-int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees,
+void send_employees(struct dbheader_t *dbhdr, struct employee_t **employeesptr,
+                    client_state_t *c) {
+
+    dbproto_hdr_t *hdr = (dbproto_hdr_t *)c->buffer;
+    hdr->type = htonl(MSG_EMPLOYEE_LIST_RESP);
+    hdr->len = htons(dbhdr->count);
+
+    write(c->fd, hdr, sizeof(dbproto_hdr_t));
+
+    dbproto_employee_list_resp *emp = (dbproto_employee_list_resp *)&hdr[1];
+
+    struct employee_t *employees = *employeesptr;
+
+    for (int i = 0; i < dbhdr->count; i++) {
+        strncpy((char *)&emp->name, employees[i].name, sizeof(emp->name));
+        strncpy((char *)&emp->address, employees[i].address,
+                sizeof(emp->address));
+        emp->hours = htonl(employees[i].hours);
+        write(c->fd, emp, sizeof(dbproto_employee_list_resp));
+    }
+
+    return;
+}
+
+int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
                       client_state_t *c, int dbfd) {
 
     dbproto_hdr_t *hdr = (dbproto_hdr_t *)c->buffer;
     hdr->type = ntohl(hdr->type);
     hdr->len = ntohs(hdr->len);
 
-    printf("c->state: %d, STATE_HELLO: %d\n", c->state, STATE_HELLO);
     if (c->state == STATE_HELLO) {
         if (hdr->type != MSG_HELLO_REQ || hdr->len != 1) {
             printf("Didn't get MSG_HELLO in HELLO state\n");
@@ -102,14 +124,19 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees,
 
             printf("Adding employee: %s\n", employee->data);
 
-            if (add_employee(dbhdr, &employees, (char *)employee->data) !=
+            if (add_employee(dbhdr, employees, (char *)employee->data) !=
                 STATUS_SUCCESS) {
                 fsm_reply_add_err(c, hdr);
                 return STATUS_ERROR;
             } else {
                 fsm_reply_add(c, hdr);
-                output_file(dbfd, dbhdr, employees);
+                output_file(dbfd, dbhdr, *employees);
             }
+        }
+
+        if (hdr->type == MSG_EMPLOYEE_LIST_REQ) {
+            printf("Client: Listing Employees...\n");
+            send_employees(dbhdr, employees, c);
         }
     }
 
@@ -125,7 +152,7 @@ int open_select(unsigned short port, struct dbheader_t *dbhdr,
 }
 
 int open_poll(unsigned short port, struct dbheader_t *dbhdr,
-              struct employee_t *employees, int dbfd) {
+              struct employee_t **employees, int dbfd) {
     int conn_fd, first_free_slot;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
@@ -134,7 +161,7 @@ int open_poll(unsigned short port, struct dbheader_t *dbhdr,
     int nfds = 1;
     int opt = 1;
 
-    init_clients(client_states);
+    init_clients((client_state_t *)&client_states);
 
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd == -1) {
@@ -169,7 +196,6 @@ int open_poll(unsigned short port, struct dbheader_t *dbhdr,
     fds[0].events = POLLIN;
     nfds = 1;
 
-    // keep server alive
     while (1) {
         int j = 1;
         for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -198,7 +224,8 @@ int open_poll(unsigned short port, struct dbheader_t *dbhdr,
                    inet_ntoa(client_addr.sin_addr),
                    ntohs(client_addr.sin_port));
 
-            first_free_slot = find_first_free_slot(client_states);
+            first_free_slot =
+                find_first_free_slot((client_state_t *)&client_states);
             if (first_free_slot == -1) {
                 printf("Server full: closing new connections\n");
                 close(conn_fd);
@@ -206,8 +233,6 @@ int open_poll(unsigned short port, struct dbheader_t *dbhdr,
                 client_states[first_free_slot].fd = conn_fd;
                 client_states[first_free_slot].state = STATE_HELLO;
                 nfds++;
-                printf("Slot %d has fd %d\n", first_free_slot,
-                       client_states[first_free_slot].fd);
             }
 
             n_events--;
@@ -218,25 +243,19 @@ int open_poll(unsigned short port, struct dbheader_t *dbhdr,
                 n_events--;
 
                 int fd = fds[i].fd;
-                int slot = find_slot_by_fd(client_states, fd);
+                int slot =
+                    find_slot_by_fd((client_state_t *)&client_states, fd);
                 ssize_t bytes_read = read(fd, &client_states[slot].buffer,
                                           sizeof(client_states[slot].buffer));
                 if (bytes_read <= 0) {
                     close(fd);
-                    if (slot == -1) {
-                        printf("Tried to close fd that doesn't exit?\n");
-                    } else {
+                    if (slot != -1) {
                         client_states[slot].fd = -1;
                         client_states[slot].state = STATE_DISCONNECTED;
                         printf("Client disconnected\n");
                         nfds--;
                     }
                 } else {
-                    printf("bytes: %zu, buf: %zu\n", bytes_read,
-                           sizeof(client_states[slot].buffer));
-                    printf("client_states[%d]: %s\n", slot,
-                           client_states[slot].buffer);
-
                     handle_client_fsm(dbhdr, employees, &client_states[slot],
                                       dbfd);
                 }

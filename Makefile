@@ -10,8 +10,10 @@ OBJ_CLI = $(SRC_CLI:src/cli/%.c=obj/cli/%.o)
 DIRS = bin obj obj/srv obj/cli
 
 run: clean default
-	./$(TARGET_SRV) -f ./mynewdb.db -n -p 8080 #&
-	# ./$(TARGET_CLI) -h 127.0.0.1 -p 8080
+	./$(TARGET_SRV) -f ./mynewdb.db -n -p 8080 &
+	./$(TARGET_CLI) -h 127.0.0.1 -p 8080 -a "tom,1 main st,85"
+	./$(TARGET_CLI) -h 127.0.0.1 -p 8080 -a "tim,2 state st,87"
+	./$(TARGET_CLI) -h 127.0.0.1 -p 8080 -l
 	
 default: dirs $(TARGET_SRV) $(TARGET_CLI)
 

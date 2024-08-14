@@ -12,8 +12,6 @@
 #include "common.h"
 
 int send_hello(int fd) {
-    printf("send_hello fd: %d\n", fd);
-
     char buf[4096] = {0};
 
     dbproto_hdr_t *hdr = (dbproto_hdr_t *)buf;
@@ -54,7 +52,7 @@ int send_employee(int fd, char *e) {
     hdr->len = 1;
 
     dbproto_employee_add_req *employee = (dbproto_employee_add_req *)&hdr[1];
-    strncpy(&employee->data, e, sizeof(employee->data));
+    strncpy((char *)&employee->data, e, sizeof(employee->data));
 
     hdr->type = htonl(hdr->type);
     hdr->len = htons(hdr->len);
@@ -79,14 +77,56 @@ int send_employee(int fd, char *e) {
     return STATUS_SUCCESS;
 }
 
+int send_list(int fd) {
+    char buf[4096] = {0};
+
+    dbproto_hdr_t *hdr = (dbproto_hdr_t *)buf;
+    hdr->type = MSG_EMPLOYEE_LIST_REQ;
+    hdr->len = 0;
+
+    // pack
+    hdr->type = htonl(hdr->type);
+    hdr->len = htons(hdr->len);
+
+    write(fd, buf, sizeof(dbproto_hdr_t) + sizeof(dbproto_employee_add_req));
+
+    read(fd, hdr, sizeof(dbproto_hdr_t));
+
+    // unpack
+    hdr->type = ntohl(hdr->type);
+    hdr->len = ntohs(hdr->len);
+
+    if (hdr->type == MSG_ERROR) {
+        printf("Err: Unable to list employees");
+        close(fd);
+        return STATUS_ERROR;
+    }
+
+    if (hdr->type == MSG_EMPLOYEE_LIST_RESP) {
+        printf("server: Listing employees:\n");
+        dbproto_employee_list_resp *employee =
+            (dbproto_employee_list_resp *)&hdr[1];
+
+        for (int i = 0; i < hdr->len; i++) {
+            read(fd, employee, sizeof(dbproto_employee_list_resp));
+            employee->hours = ntohl(employee->hours);
+            printf("Employee: %s\t, Addr: %s\t, hours: %d\t\n", employee->name,
+                   employee->address, employee->hours);
+        }
+    }
+
+    return STATUS_SUCCESS;
+}
+
 int main(int argc, char *argv[]) {
 
     char *add = NULL;
     char *host = NULL;
     unsigned short port = 0;
+    bool list = false;
 
     int c;
-    while ((c = getopt(argc, argv, "a:h:p:")) != -1) {
+    while ((c = getopt(argc, argv, "a:h:p:l")) != -1) {
         switch (c) {
         case 'a':
             add = optarg;
@@ -96,6 +136,9 @@ int main(int argc, char *argv[]) {
             break;
         case 'h':
             host = optarg;
+            break;
+        case 'l':
+            list = true;
             break;
         case '?':
             printf("UKNWN  OPTION: -%c\n", c);
@@ -107,11 +150,11 @@ int main(int argc, char *argv[]) {
 
     if (port == 0) {
         printf("bad port arg: -p %s\n", optarg);
-        return -1;
+        return STATUS_ERROR;
     }
     if (host == NULL) {
         printf("You must specify host with -h \n");
-        return -1;
+        return STATUS_ERROR;
     }
 
     struct sockaddr_in serverinfo = {0};
@@ -139,6 +182,10 @@ int main(int argc, char *argv[]) {
 
     if (add) {
         send_employee(fd, add);
+    }
+
+    if (list) {
+        send_list(fd);
     }
 
     close(fd);

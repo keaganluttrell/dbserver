@@ -59,10 +59,6 @@ int main(int argc, char *argv[]) {
             break;
         case 'p':
             port = atoi(optarg);
-            if (port == 0) {
-                printf("Bad port: %s\n", optarg);
-                exit(EXIT_FAILURE);
-            }
             break;
         case 'r':
             removename = optarg;
@@ -88,6 +84,11 @@ int main(int argc, char *argv[]) {
         default:
             return -1;
         }
+    }
+
+    if (port == 0) {
+        printf("Bad port: %s\n", optarg);
+        exit(EXIT_FAILURE);
     }
 
     if (filepath == NULL) {
@@ -125,9 +126,6 @@ int main(int argc, char *argv[]) {
     }
 
     if (addstring) {
-        // dbhdr->count++;
-        // employees =
-        //     realloc(employees, dbhdr->count * (sizeof(struct employee_t)));
         add_employee(dbhdr, &employees, addstring);
     }
 
@@ -160,19 +158,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (list || 1) {
+    if (list) {
         list_employees(dbhdr, employees);
     }
 
-    output_file(db_fd, dbhdr, employees);
-
-    if (port) {
-        if (select) {
-            open_select(port, dbhdr, employees);
-        } else {
-            open_poll(port, dbhdr, employees, db_fd);
-        }
-    }
+    open_poll(port, dbhdr, &employees, db_fd);
 
     return STATUS_SUCCESS;
 }

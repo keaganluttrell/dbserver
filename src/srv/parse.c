@@ -71,16 +71,6 @@ int add_employees_from_file(struct dbheader_t *dbhdr,
 
     char line[256];
     while (fgets(line, sizeof(line), file)) {
-        // dbhdr->count++;
-        // struct employee_t *temp =
-        // realloc(*employees, dbhdr->count * sizeof(struct employee_t));
-        // if (temp == NULL) {
-        // perror("Memory allocation failed");
-        // fclose(file);
-        // return STATUS_ERROR;
-        // }
-        // *employees = temp;
-        printf("add_emp_file\n");
         add_employee(dbhdr, employees, line);
     }
 

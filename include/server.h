@@ -23,7 +23,7 @@ typedef struct {
 int open_select(unsigned short port, struct dbheader_t *dbhdr,
                 struct employee_t *employees);
 int open_poll(unsigned short port, struct dbheader_t *dbhdr,
-              struct employee_t *employees, int dbfd);
-int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees,
+              struct employee_t **employees, int dbfd);
+int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
                       client_state_t *c, int dbfd);
 #endif
