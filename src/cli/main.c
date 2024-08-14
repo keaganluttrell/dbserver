@@ -136,7 +136,12 @@ int send_list(int fd) {
     }
 
     if (hdr->type == MSG_EMPLOYEE_LIST_RESP) {
-        printf("server: Listing employees:\n");
+        if (hdr->len == 0) {
+            printf("no employees to list\n");
+            return STATUS_SUCCESS;
+        }
+
+        printf("Listing employees:\n");
         dbproto_employee_list_resp *employee =
             (dbproto_employee_list_resp *)&hdr[1];
 

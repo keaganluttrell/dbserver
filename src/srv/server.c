@@ -78,6 +78,13 @@ void send_employees(struct dbheader_t *dbhdr, struct employee_t **employeesptr,
 
     struct employee_t *employees = *employeesptr;
 
+    if (dbhdr->count == 0) {
+        printf("No employees in database\n");
+        return;
+    }
+
+    printf("sending employee list.\n");
+
     for (int i = 0; i < dbhdr->count; i++) {
         strncpy((char *)&emp->name, employees[i].name, sizeof(emp->name));
         strncpy((char *)&emp->address, employees[i].address,
@@ -141,7 +148,6 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
         }
 
         if (hdr->type == MSG_EMPLOYEE_LIST_REQ) {
-            printf("Client: Listing Employees...\n");
             send_employees(dbhdr, employees, c);
         }
 
@@ -153,7 +159,7 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
             if (remove_employee_by_name(dbhdr, *employees,
                                         (char *)employee->name) !=
                 STATUS_SUCCESS) {
-                printf("unable to remove employee: %s", employee->name);
+                printf("unable to remove employee: %s\n", employee->name);
                 fsm_reply_err(c, hdr);
             } else {
                 fsm_del_reply(c, hdr);
