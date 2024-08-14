@@ -91,6 +91,14 @@ void send_employees(struct dbheader_t *dbhdr, struct employee_t **employeesptr,
     return;
 }
 
+void fsm_del_reply(client_state_t *c, dbproto_hdr_t *hdr) {
+    hdr->type = htonl(MSG_EMPLOYEE_DEL_RES);
+    hdr->len = htons(0);
+
+    write(c->fd, hdr, sizeof(dbproto_hdr_t));
+    return;
+}
+
 int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
                       client_state_t *c, int dbfd) {
 
@@ -138,9 +146,24 @@ int handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees,
             printf("Client: Listing Employees...\n");
             send_employees(dbhdr, employees, c);
         }
+
+        if (hdr->type == MSG_EMPLOYEE_DEL_REQ) {
+            dbproto_employee_del_req *employee =
+                (dbproto_employee_del_req *)&hdr[1];
+            printf("removing employee: %s\n", (char *)employee->name);
+
+            if (remove_employee_by_name(dbhdr, *employees,
+                                        (char *)employee->name) !=
+                STATUS_SUCCESS) {
+                perror("remove_employee_by_name");
+            } else {
+                fsm_del_reply(c, hdr);
+                output_file(dbfd, dbhdr, *employees);
+            }
+        }
     }
 
-    return 0;
+    return STATUS_SUCCESS;
 }
 
 client_state_t client_states[MAX_CLIENTS] = {0};

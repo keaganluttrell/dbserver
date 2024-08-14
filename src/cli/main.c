@@ -77,6 +77,39 @@ int send_employee(int fd, char *e) {
     return STATUS_SUCCESS;
 }
 
+int send_del(int fd, char *name) {
+
+    char buf[4096] = {0};
+    dbproto_hdr_t *hdr = (dbproto_hdr_t *)buf;
+    hdr->type = MSG_EMPLOYEE_DEL_REQ;
+    hdr->len = 1;
+
+    dbproto_employee_del_req *e = (dbproto_employee_del_req *)&hdr[1];
+    strncpy((char *)&e->name, name, sizeof(e->name));
+
+    hdr->type = htonl(hdr->type);
+    hdr->len = htons(hdr->len);
+
+    write(fd, buf, sizeof(dbproto_hdr_t) + sizeof(dbproto_employee_del_req));
+
+    read(fd, buf, sizeof(buf));
+
+    hdr->type = ntohl(hdr->type);
+    hdr->len = ntohs(hdr->len);
+
+    if (hdr->type == MSG_ERROR) {
+        printf("Err: bad format for name string\n");
+        close(fd);
+        return STATUS_ERROR;
+    }
+
+    if (hdr->type == MSG_EMPLOYEE_DEL_RES) {
+        printf("Employee removed: %s\n", name);
+    }
+
+    return STATUS_SUCCESS;
+}
+
 int send_list(int fd) {
     char buf[4096] = {0};
 
@@ -122,11 +155,12 @@ int main(int argc, char *argv[]) {
 
     char *add = NULL;
     char *host = NULL;
+    char *removename = NULL;
     unsigned short port = 0;
     bool list = false;
 
     int c;
-    while ((c = getopt(argc, argv, "a:h:p:l")) != -1) {
+    while ((c = getopt(argc, argv, "a:h:p:r:l")) != -1) {
         switch (c) {
         case 'a':
             add = optarg;
@@ -136,6 +170,9 @@ int main(int argc, char *argv[]) {
             break;
         case 'h':
             host = optarg;
+            break;
+        case 'r':
+            removename = optarg;
             break;
         case 'l':
             list = true;
@@ -186,6 +223,10 @@ int main(int argc, char *argv[]) {
 
     if (list) {
         send_list(fd);
+    }
+
+    if (removename) {
+        send_del(fd, removename);
     }
 
     close(fd);
